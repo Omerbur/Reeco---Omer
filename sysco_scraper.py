@@ -395,15 +395,32 @@ class SyscoScraper:
                 if read_more_button:
                     print("Found 'Read More' button, clicking it...")
                     await read_more_button.click()
-                    await self.page.wait_for_timeout(1000)  # Wait for content to expand
-                
-                # Now extract the description
-                desc_element = await self.page.query_selector('div[data-id="product_description_text"]')
-                if desc_element:
-                    description_text = await desc_element.inner_text()
-                    # Clean up the description by removing "Read More" artifacts
-                    description_text = description_text.replace('...Read More', '').strip()
-                    product_data['description'] = description_text
+                    await self.page.wait_for_timeout(1500)  # Wait for content to expand
+                    
+                    # After clicking "Read More", extract from the expanded content
+                    desc_element = await self.page.query_selector('.description-detail-wrapper')
+                    if desc_element:
+                        description_text = await desc_element.inner_text()
+                        # Clean up the description by removing "Read Less" artifacts and extra whitespace
+                        description_text = description_text.replace('Read Less', '').strip()
+                        # Remove any remaining button artifacts and clean up formatting
+                        lines = description_text.split('\n')
+                        cleaned_lines = [line.strip() for line in lines if line.strip() and 'Preparation and Cooking Instructions' not in line]
+                        product_data['description'] = '\n'.join(cleaned_lines)
+                        print(f"Extracted expanded description: {len(product_data['description'])} characters")
+                    else:
+                        print("Could not find .description-detail-wrapper after clicking Read More")
+                        # Fallback to original selector
+                        desc_element = await self.page.query_selector('div[data-id="product_description_text"]')
+                        if desc_element:
+                            product_data['description'] = await desc_element.inner_text()
+                else:
+                    # No "Read More" button, try to get description from original location
+                    desc_element = await self.page.query_selector('div[data-id="product_description_text"]')
+                    if desc_element:
+                        description_text = await desc_element.inner_text()
+                        product_data['description'] = description_text.strip()
+                        print(f"Extracted basic description: {len(product_data['description'])} characters")
             except Exception as e:
                 print(f"Could not extract description: {e}")
                     
